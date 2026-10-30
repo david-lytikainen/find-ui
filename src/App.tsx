@@ -4,14 +4,11 @@ import { DuplicateReport, Location, WaterReport, waterApi } from "./api";
 type Screen = "home" | "categories" | "locating" | "results" | "report" | "duplicate" | "done";
 type Mode = "find" | "report";
 
-function getSessionId(): string {
-  const key = "find-voting-session";
-  let sessionId = window.sessionStorage.getItem(key);
-  if (!sessionId) {
-    sessionId = window.crypto.randomUUID();
-    window.sessionStorage.setItem(key, sessionId);
-  }
-  return sessionId;
+function getSessionVotes(): Record<number, number> {
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem("find-session-votes") || "{}");
+    return Object.fromEntries(Object.entries(saved).filter(([, vote]) => vote === -1 || vote === 1)) as Record<number, number>;
+  } catch { return {}; }
 }
 
 function scoreClass(score: number): string {
@@ -35,7 +32,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingVote, setPendingVote] = useState<number | null>(null);
-  const [sessionId] = useState(getSessionId);
+  const [sessionVotes, setSessionVotes] = useState<Record<number, number>>(getSessionVotes);
 
   const goHome = () => { setScreen("home"); setError(""); setMessage(""); setDescription(""); setDuplicate(null); };
   const goCategories = () => { setScreen("categories"); setError(""); setMessage(""); };
@@ -51,7 +48,7 @@ export default function App() {
       setLocation(currentLocation);
       if (nextMode === "find") {
         setBusy(true);
-        try { const result = await waterApi.reports(currentLocation, sessionId); setReports(result.reports); setScreen("results"); }
+        try { const result = await waterApi.reports(currentLocation); setReports(result.reports.map(report => ({ ...report, my_vote: sessionVotes[report.id] || 0 }))); setScreen("results"); }
         catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Could not load water locations."); }
         finally { setBusy(false); }
       } else {
@@ -78,8 +75,13 @@ export default function App() {
     setPendingVote(reportId);
     setError("");
     try {
-      const result = await waterApi.vote(reportId, sessionId, currentVote === direction ? 0 : direction);
-      setReports(current => current.map(report => report.id === reportId ? { ...report, credibility: result.credibility, my_vote: result.my_vote } : report));
+      const nextVote = currentVote === direction ? 0 : direction;
+      const result = await waterApi.vote(reportId, nextVote - currentVote);
+      const nextVotes = { ...sessionVotes, [reportId]: nextVote };
+      if (!nextVote) delete nextVotes[reportId];
+      window.sessionStorage.setItem("find-session-votes", JSON.stringify(nextVotes));
+      setSessionVotes(nextVotes);
+      setReports(current => current.map(report => report.id === reportId ? { ...report, credibility: result.credibility, my_vote: nextVote } : report));
     } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Could not save your vote."); }
     finally { setPendingVote(null); }
   };
@@ -89,7 +91,12 @@ export default function App() {
     setBusy(true);
     setError("");
     try {
-      await waterApi.vote(duplicate.id, sessionId, 1);
+      const currentVote = sessionVotes[duplicate.id] || 0;
+      const result = await waterApi.vote(duplicate.id, 1 - currentVote);
+      const nextVotes = { ...sessionVotes, [duplicate.id]: 1 };
+      window.sessionStorage.setItem("find-session-votes", JSON.stringify(nextVotes));
+      setSessionVotes(nextVotes);
+      setReports(current => current.map(report => report.id === duplicate.id ? { ...report, credibility: result.credibility, my_vote: 1 } : report));
       setMessage("Thanks for confirming this location.");
       setScreen("done");
     } catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Could not confirm this location."); }

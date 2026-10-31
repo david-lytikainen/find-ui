@@ -1,2 +1,19 @@
 body { background: #f8f9fa; }
 .find-shell { max-width: 38rem; }
+.find-home { height: 100dvh; min-height: 100dvh !important; overflow: hidden; display: flex; flex-direction: column; }
+.find-home .find-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; width: 100%; }
+.find-home .find-shell header { flex: 0 0 auto; }
+.home-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: .75rem; }
+.home-comments { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.comment-thread { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.comment-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.comment-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.comment-backdrop { position: fixed; inset: 0; z-index: 1050; display: flex; align-items: end; justify-content: center; padding: 0; background: rgb(0 0 0 / 55%); }
+.comment-modal { width: min(100%, 38rem); height: min(82dvh, 48rem); border-radius: 1rem 1rem 0 0; overflow: hidden; }
+.admin-modal { width: min(calc(100% - 2rem), 28rem); margin: auto; }
+@media (min-width: 768px) {
+  .find-home { height: 100vh; min-height: 100vh !important; }
+  .find-home .find-shell { max-width: 38rem; }
+  .comment-backdrop { align-items: center; padding: 1rem; }
+  .comment-modal { height: min(82vh, 48rem); border-radius: .5rem; }
+}

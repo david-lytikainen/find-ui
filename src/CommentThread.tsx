@@ -1,13 +1,13 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Comment, waterApi } from "./api";
 
-type Props = { reportId: number | null; adminToken: string; onAdminNeeded: () => void; embedded?: boolean; onClose?: () => void };
+type Props = { reportId: number | null; adminToken: string; embedded?: boolean; onClose?: () => void };
 
 function getVotes(): Record<number, number> {
   try { return JSON.parse(window.sessionStorage.getItem("find-comment-votes") || "{}"); } catch { return {}; }
 }
 
-export default function CommentThread({ reportId, adminToken, onAdminNeeded, embedded = false, onClose }: Props) {
+export default function CommentThread({ reportId, adminToken, embedded = false, onClose }: Props) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(0);
@@ -55,7 +55,7 @@ export default function CommentThread({ reportId, adminToken, onAdminNeeded, emb
   };
 
   const remove = async (commentId: number) => {
-    if (!adminToken) { onAdminNeeded(); return; }
+    if (!adminToken) return;
     if (!window.confirm("Delete this comment?")) return;
     try { await waterApi.deleteComment(commentId, adminToken); await load(page); }
     catch (requestError) { setError(requestError instanceof Error ? requestError.message : "Could not delete comment."); }
@@ -72,7 +72,6 @@ export default function CommentThread({ reportId, adminToken, onAdminNeeded, emb
           <div className="d-flex align-items-center gap-1"><button className={`btn btn-sm ${comment.my_vote === 1 ? "btn-success" : "btn-outline-secondary"}`} aria-label="Upvote comment" disabled={busy} onClick={() => void vote(comment, 1)}><i className="fa-solid fa-arrow-up" /></button><span className="small fw-semibold" aria-label={`${comment.votes} votes`}>{comment.votes}</span><button className={`btn btn-sm ${comment.my_vote === -1 ? "btn-danger" : "btn-outline-secondary"}`} aria-label="Downvote comment" disabled={busy} onClick={() => void vote(comment, -1)}><i className="fa-solid fa-arrow-down" /></button></div>
         </div>
         {adminToken && <button className="btn btn-link btn-sm text-danger px-0" onClick={() => void remove(comment.id)}>Delete</button>}
-        {!adminToken && <button className="btn btn-link btn-sm text-secondary px-0" onClick={onAdminNeeded}>Admin</button>}
       </article>)}
     </div>
     {pages > 1 && <nav className="d-flex align-items-center justify-content-between border-top px-3 py-2" aria-label="Comment pages"><button className="btn btn-sm btn-outline-secondary" disabled={page <= 1} onClick={() => void load(page - 1)}>Previous</button><span className="small text-secondary">{page} / {pages} · {total} comments</span><button className="btn btn-sm btn-outline-secondary" disabled={page >= pages} onClick={() => void load(page + 1)}>Next</button></nav>}
